@@ -1,188 +1,238 @@
-# Zhichong AI Models
+# Zhichong AI Model Starter
 
-智宠项目的视觉与听觉 AI 模型仓库。
+This repository is the first AI model code base for the Zhichong smart pet monitoring project.
 
-本仓库只负责模型侧能力：
+It focuses on two model directions:
 
-- 视觉模型：YOLO，用于宠物检测与行为识别
-- 听觉模型：YAMNet，用于宠物声音事件识别
-- 统一输出：JSON，方便后续 FastAPI 后端直接调用
+1. Vision model: YOLO for pet detection and behavior recognition.
+2. Audio model: YAMNet for pet sound event recognition.
 
-前端不直接接入本仓库。后续架构应为：
+The frontend is not included here. This repository is prepared for model training, testing, exporting, and later integration with a FastAPI backend.
+
+## Project Goal
+
+The final product should support:
+
+- Pet video/image analysis.
+- Pet behavior detection, such as standing, lying, eating, drinking, pacing, or abnormal behavior.
+- Pet sound recognition, such as barking, howling, whimpering, meowing, or other abnormal sounds.
+- Model export for backend deployment.
+- Clean GitHub structure for future collaboration.
+
+## Files
 
 ```text
-前端 App / Web
-  -> FastAPI 后端
-  -> zhichong-ai-models
-  -> YOLO / YAMNet
+.
+├── train.py          # Train YOLO vision model
+├── test.py           # Test YOLO image/video and YAMNet audio inference
+├── export.py         # Export YOLO model to ONNX/TorchScript/etc.
+├── requirements.txt  # Python dependencies
+├── .gitignore        # Ignore model weights, datasets, cache files
+├── LICENSE           # MIT license
+└── README.md         # Project documentation
 ```
 
-## 目录结构
+## Environment
+
+Recommended Python version:
 
 ```text
-zhichong-ai-models/
-  configs/
-    default.yaml
-  scripts/
-    demo_audio.py
-    demo_vision.py
-  src/
-    zhichong_ai/
-      audio/
-        yamnet_service.py
-      common/
-        config.py
-        schemas.py
-      vision/
-        yolo_service.py
-  tests/
-    test_schemas.py
-  .gitignore
-  pyproject.toml
+Python 3.10 or Python 3.11
 ```
 
-## 环境要求
-
-- Python 3.10 或 3.11
-- 建议使用虚拟环境
-- GPU 不是必须，但 YOLO 视频推理建议使用 GPU
-
-安装：
+Create a virtual environment:
 
 ```bash
 python -m venv .venv
+```
+
+Activate it on Windows:
+
+```bash
 .venv\Scripts\activate
-pip install -e ".[dev]"
 ```
 
-如果只运行视觉模型：
+Install dependencies:
 
 ```bash
-pip install ultralytics opencv-python pydantic pyyaml
+pip install -r requirements.txt
 ```
 
-如果只运行听觉模型：
+## Dataset Preparation for YOLO
 
-```bash
-pip install tensorflow tensorflow-hub librosa soundfile numpy pydantic pyyaml
+YOLO training requires a dataset configuration file, usually named `data.yaml`.
+
+Example:
+
+```yaml
+path: datasets/pet_behavior
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: cat
+  1: dog
+  2: standing
+  3: lying
+  4: eating
+  5: drinking
+  6: pacing
+  7: abnormal
 ```
 
-## 模型文件
-
-YOLO 权重文件不要提交到 GitHub。建议放在：
+Recommended dataset structure:
 
 ```text
-models/yolo/pet_behavior.pt
+datasets/pet_behavior/
+├── images/
+│   ├── train/
+│   ├── val/
+│   └── test/
+└── labels/
+    ├── train/
+    ├── val/
+    └── test/
 ```
 
-如果你的文件名不同，修改：
+Do not upload the dataset to GitHub unless it is small and public. Large datasets should be stored separately.
 
-```text
-configs/default.yaml
-```
+## Train YOLO
 
-YAMNet 默认从 TensorFlow Hub 加载：
-
-```text
-https://tfhub.dev/google/yamnet/1
-```
-
-如果运行环境不能联网，可以提前下载 YAMNet SavedModel，并把 `audio.yamnet_model_url` 改成本地路径。
-
-## 运行 YOLO 视觉识别
-
-图片：
+Basic training:
 
 ```bash
-python scripts/demo_vision.py --image data/samples/pet.jpg
+python train.py --data datasets/pet_behavior/data.yaml --model yolov8n.pt --epochs 50
 ```
 
-视频抽帧：
+Useful options:
 
 ```bash
-python scripts/demo_vision.py --video data/samples/pet.mp4 --every-n-frames 15
+python train.py \
+  --data datasets/pet_behavior/data.yaml \
+  --model yolov8n.pt \
+  --epochs 100 \
+  --imgsz 640 \
+  --batch 16 \
+  --project runs/train \
+  --name pet_behavior_yolo
 ```
 
-输出示例：
-
-```json
-{
-  "source": "data/samples/pet.jpg",
-  "detections": [
-    {
-      "label": "dog",
-      "confidence": 0.91,
-      "box": [102.4, 88.1, 420.7, 360.2]
-    }
-  ]
-}
-```
-
-## 运行 YAMNet 听觉识别
-
-```bash
-python scripts/demo_audio.py --audio data/samples/bark.wav
-```
-
-输出示例：
-
-```json
-{
-  "source": "data/samples/bark.wav",
-  "events": [
-    {
-      "label": "Bark",
-      "confidence": 0.82,
-      "start_sec": 0.0,
-      "end_sec": 0.96
-    }
-  ]
-}
-```
-
-## 后续接入 FastAPI 的方式
-
-FastAPI 后端可以直接导入服务类：
-
-```python
-from zhichong_ai.common.config import load_config
-from zhichong_ai.vision.yolo_service import YoloVisionService
-from zhichong_ai.audio.yamnet_service import YamnetAudioService
-
-config = load_config("configs/default.yaml")
-yolo = YoloVisionService(config.vision)
-yamnet = YamnetAudioService(config.audio)
-```
-
-后端接口建议保持模型无关：
+After training, the best model is usually saved at:
 
 ```text
-POST /api/ai/vision/analyze-image
-POST /api/ai/vision/analyze-video
-POST /api/ai/audio/analyze
+runs/train/pet_behavior_yolo/weights/best.pt
 ```
 
-这样以后更换 YOLO 权重或替换音频模型时，前端接口不需要变化。
+## Test YOLO on Image or Video
 
-## GitHub 初始化
+Image:
+
+```bash
+python test.py --task vision --model runs/train/pet_behavior_yolo/weights/best.pt --source samples/pet.jpg
+```
+
+Video:
+
+```bash
+python test.py --task vision --model runs/train/pet_behavior_yolo/weights/best.pt --source samples/pet.mp4
+```
+
+The prediction results will be saved under:
+
+```text
+runs/predict/
+```
+
+## Test YAMNet Audio
+
+YAMNet is a pretrained audio event classification model. It can be used first as a baseline for pet sound recognition.
+
+```bash
+python test.py --task audio --source samples/bark.wav
+```
+
+The script prints top audio classes with confidence scores.
+
+Important note:
+
+YAMNet is not a pet-specific model. It is useful for a first prototype, but later you may need a custom pet sound classifier if you want better accuracy for barking, whining, howling, or distress sounds.
+
+## Export YOLO Model
+
+Export to ONNX:
+
+```bash
+python export.py --model runs/train/pet_behavior_yolo/weights/best.pt --format onnx
+```
+
+Export to TorchScript:
+
+```bash
+python export.py --model runs/train/pet_behavior_yolo/weights/best.pt --format torchscript
+```
+
+Common export formats:
+
+```text
+onnx
+torchscript
+openvino
+engine
+tflite
+```
+
+For FastAPI backend deployment, ONNX is usually a practical first choice.
+
+## GitHub Upload
+
+Initialize Git:
 
 ```bash
 git init
 git add .
-git commit -m "Initial YOLO and YAMNet model services"
+git commit -m "Initial AI model starter code"
+```
+
+Create a GitHub repository named:
+
+```text
+zhichong-ai-model-starter
+```
+
+Then connect and push:
+
+```bash
 git branch -M main
-git remote add origin https://github.com/<your-name>/zhichong-ai-models.git
+git remote add origin https://github.com/YOUR_USERNAME/zhichong-ai-model-starter.git
 git push -u origin main
 ```
 
-## 不要提交的内容
+## What Should Not Be Uploaded
 
-- `.venv/`
-- `models/`
-- `data/`
-- `datasets/`
-- `runs/`
-- `.pt`、`.onnx`、`.engine`
-- `.mp4`、`.wav`、`.mp3`
+The following files are ignored by `.gitignore`:
 
-这些内容已经写入 `.gitignore`。
+- Virtual environments.
+- Python cache files.
+- Datasets.
+- Training outputs.
+- Model weights.
+- Audio/video/image samples.
+- Local environment files.
+
+This keeps the GitHub repository clean and lightweight.
+
+## Next Development Steps
+
+Recommended next work:
+
+1. Add a real pet behavior dataset.
+2. Train a YOLO model for pet behavior labels.
+3. Collect pet audio samples.
+4. Compare YAMNet baseline results with real pet audio.
+5. Add FastAPI endpoints for image, video, and audio inference.
+6. Add abnormal behavior rules, such as "static over 30 minutes" or "frequent barking".
+
+## License
+
+This project uses the MIT License. See `LICENSE` for details.

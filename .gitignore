@@ -1,34 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
 .venv/
 venv/
 env/
 
-__pycache__/
-*.py[cod]
-*$py.class
-
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-
+# Local environment files
 .env
 .env.*
 
-models/
-data/
-datasets/
-runs/
-artifacts/
-
+# Model weights and exported models
 *.pt
 *.pth
 *.onnx
 *.engine
 *.tflite
-*.h5
+*.torchscript
 *.pb
+*.h5
+models/
 
+# Datasets and samples
+datasets/
+data/
+samples/
+
+# Training and prediction outputs
+runs/
+outputs/
+artifacts/
+
+# Media files
+*.jpg
+*.jpeg
+*.png
+*.bmp
 *.mp4
 *.avi
 *.mov
@@ -37,5 +49,6 @@ artifacts/
 *.mp3
 *.flac
 
+# System files
 .DS_Store
 Thumbs.db
